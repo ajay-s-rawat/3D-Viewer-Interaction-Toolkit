@@ -381,12 +381,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 250770747}
-  offset: {x: 0, y: 0, z: -5}
-  orbitSpeed: 0.1
-  minVerticalAngle: -20
-  maxVerticalAngle: 80
-  zoomSpeed: 1
-  minZoomDistance: 2
+  defaultDistance: 6
+  orbitSpeed: 0.5
+  zoomSpeed: 0.5
+  minZoomDistance: 0
   maxZoomDistance: 15
 --- !u!1001 &361976250
 PrefabInstance:
@@ -904,10 +902,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 250770747}
-  offset: {x: 0, y: 0, z: -5}
+  defaultDistance: 5
   orbitSpeed: 0.1
-  minVerticalAngle: -20
-  maxVerticalAngle: 80
   zoomSpeed: 1
   minZoomDistance: 2
   maxZoomDistance: 15
@@ -924,7 +920,7 @@ GameObject:
   - component: {fileID: 2123603301}
   - component: {fileID: 2123603300}
   m_Layer: 5
-  m_Name: Button
+  m_Name: Reset
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -992,7 +988,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2123603301}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 330585548}
+        m_TargetAssemblyTypeName: ThreeDViewerController, Assembly-CSharp
+        m_MethodName: ResetView
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &2123603301
 MonoBehaviour:
   m_ObjectHideFlags: 0

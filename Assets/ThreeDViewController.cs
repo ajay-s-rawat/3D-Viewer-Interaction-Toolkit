@@ -1,96 +1,151 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// A free 360° orbit camera that supports zoom and reset,
+/// using Unity's Input System with clean separation of input and logic.
+/// </summary>
 public class ThreeDViewerController : MonoBehaviour
 {
+    #region === Serialized Fields ===
+
     [Header("Target Settings")]
+    [Tooltip("The target the camera will orbit around.")]
     public Transform target;
-    public Vector3 offset = new Vector3(0, 0, -5f);
+
+    [Header("Default View Settings")]
+    [Tooltip("Default distance from the target.")]
+    public float defaultDistance = 5f;
 
     [Header("Orbit Settings")]
-    public float orbitSpeed = 0.1f;
-    public float minVerticalAngle = -20f;
-    public float maxVerticalAngle = 80f;
+    [Tooltip("Speed multiplier for orbiting via mouse movement.")]
+    public float orbitSpeed = 0.2f;
 
     [Header("Zoom Settings")]
+    [Tooltip("Speed multiplier for scroll wheel zooming.")]
     public float zoomSpeed = 1f;
+
+    [Tooltip("Minimum distance to the target.")]
     public float minZoomDistance = 2f;
+
+    [Tooltip("Maximum distance to the target.")]
     public float maxZoomDistance = 15f;
 
-    private float currentYaw = 0f;
-    private float currentPitch = 20f;
-    private float currentDistance;
+    #endregion
 
-    private float defaultYaw, defaultPitch, defaultDistance;
+    #region === Private Fields ===
+
+    private float yaw = 0f;       // Horizontal rotation (left/right)
+    private float pitch = 0f;     // Vertical rotation (up/down)
+    private float distance;       // Current zoom distance
+
+    private float defaultYaw;
+    private float defaultPitch;
+    private float defaultZoom;
 
     private bool isOrbiting = false;
 
     private InputSystem_Actions input;
 
-    void Awake()
+    #endregion
+
+    #region === Unity Events ===
+
+    private void Awake()
+    {
+        InitializeInput();
+    }
+
+    private void Start()
+    {
+        if (target == null)
+        {
+            Debug.LogError("ThreeDViewerController: No target assigned.");
+            enabled = false;
+            return;
+        }
+
+        // Set initial zoom and view angles
+        distance = defaultDistance;
+        defaultYaw = yaw;
+        defaultPitch = pitch;
+        defaultZoom = distance;
+
+        UpdateCameraPosition();
+    }
+
+    private void OnEnable() => input?.Enable();
+    private void OnDisable() => input?.Disable();
+
+    #endregion
+
+    #region === Input Setup ===
+
+    /// <summary>
+    /// Initializes the Unity Input System bindings.
+    /// </summary>
+    private void InitializeInput()
     {
         input = new InputSystem_Actions();
 
-        input.Camera.Orbit.started += ctx => isOrbiting = true;
-        input.Camera.Orbit.canceled += ctx => isOrbiting = false;
+        input.Camera.Orbit.started += _ => isOrbiting = true;
+        input.Camera.Orbit.canceled += _ => isOrbiting = false;
 
         input.Camera.Look.performed += ctx =>
         {
             if (!isOrbiting) return;
 
             Vector2 delta = ctx.ReadValue<Vector2>();
-            currentYaw += delta.x * orbitSpeed;
-            currentPitch -= delta.y * orbitSpeed;
-            currentPitch = Mathf.Clamp(currentPitch, minVerticalAngle, maxVerticalAngle);
+            yaw += delta.x * orbitSpeed;
+            pitch -= delta.y * orbitSpeed;
+
+            // Optional: limit pitch slightly to avoid gimbal flip
+            //pitch = Mathf.Clamp(pitch, -89f, 89f);
+
             UpdateCameraPosition();
         };
 
         input.Camera.Zoom.performed += ctx =>
         {
             float scrollY = ctx.ReadValue<Vector2>().y;
-            currentDistance -= scrollY * zoomSpeed;
-            currentDistance = Mathf.Clamp(currentDistance, minZoomDistance, maxZoomDistance);
+            distance -= scrollY * zoomSpeed;
+            distance = Mathf.Clamp(distance, minZoomDistance, maxZoomDistance);
             UpdateCameraPosition();
         };
-
-        //input.Camera.ResetView.performed += ctx => ResetView();
     }
 
-    void Start()
-    {
-        if (target == null)
-        {
-            Debug.LogError("3DViewerController: No target assigned.");
-            enabled = false;
-            return;
-        }
+    #endregion
 
-        currentDistance = offset.magnitude;
+    #region === Camera Logic ===
 
-        // Store defaults
-        defaultYaw = currentYaw;
-        defaultPitch = currentPitch;
-        defaultDistance = currentDistance;
-
-        UpdateCameraPosition();
-    }
-
-    void OnEnable() => input.Enable();
-    void OnDisable() => input.Disable();
-
+    /// <summary>
+    /// Updates the camera's position and rotation based on current yaw, pitch, and zoom distance.
+    /// </summary>
     private void UpdateCameraPosition()
     {
-        Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0f);
+        // Create a rotation from yaw and pitch
+        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
+
+        // Determine direction vector based on rotation
         Vector3 direction = rotation * Vector3.forward;
-        transform.position = target.position - direction * currentDistance;
-        transform.LookAt(target);
+
+        // Place camera at correct position around target
+        transform.position = target.position - direction * distance;
+
+        // Align the camera to look at the target
+        transform.rotation = rotation;
     }
 
+    /// <summary>
+    /// Resets the orbit camera to its default view.
+    /// </summary>
     public void ResetView()
     {
-        currentYaw = defaultYaw;
-        currentPitch = defaultPitch;
-        currentDistance = defaultDistance;
+        yaw = defaultYaw;
+        pitch = defaultPitch;
+        distance = defaultZoom;
         UpdateCameraPosition();
     }
+
+    #endregion
 }
