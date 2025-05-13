@@ -31,6 +31,11 @@ public class ThreeDViewerController : MonoBehaviour
     [Tooltip("Maximum distance to the target.")]
     public float maxZoomDistance = 15f;
 
+    [Header("Pan Settings")]
+    [Tooltip("Speed multiplier for panning the view.")]
+    public float panSpeed = 0.01f;
+
+
     #endregion
 
     #region === Private Fields ===
@@ -44,6 +49,11 @@ public class ThreeDViewerController : MonoBehaviour
     private float defaultZoom;
 
     private bool isOrbiting = false;
+    private bool orbitInputEnabled = true;
+
+    private bool isPanning = false;
+    Vector3 panOffset = Vector3.zero;
+    private bool panInputEnabled = true;
 
     private InputSystem_Actions input;
 
@@ -71,7 +81,7 @@ public class ThreeDViewerController : MonoBehaviour
         defaultPitch = pitch;
         defaultZoom = distance;
 
-        UpdateCameraPosition();
+        OrbitPosition();
     }
 
     private void OnEnable() => input?.Enable();
@@ -93,16 +103,18 @@ public class ThreeDViewerController : MonoBehaviour
 
         input.Camera.Look.performed += ctx =>
         {
-            if (!isOrbiting) return;
+            if (!isOrbiting || !orbitInputEnabled) return;
 
             Vector2 delta = ctx.ReadValue<Vector2>();
+            if(delta.magnitude < 1) return;
+
             yaw += delta.x * orbitSpeed;
             pitch -= delta.y * orbitSpeed;
 
             // Optional: limit pitch slightly to avoid gimbal flip
             //pitch = Mathf.Clamp(pitch, -89f, 89f);
 
-            UpdateCameraPosition();
+            OrbitPosition();
         };
 
         input.Camera.Zoom.performed += ctx =>
@@ -110,7 +122,27 @@ public class ThreeDViewerController : MonoBehaviour
             float scrollY = ctx.ReadValue<Vector2>().y;
             distance -= scrollY * zoomSpeed;
             distance = Mathf.Clamp(distance, minZoomDistance, maxZoomDistance);
-            UpdateCameraPosition();
+            OrbitPosition();
+        };
+
+        input.Camera.Pan.started += _ => { if (panInputEnabled) isPanning = true; };
+        input.Camera.Pan.canceled += _ => isPanning = false;
+
+        input.Camera.Look.performed += ctx =>
+        {
+            if (!isPanning || !panInputEnabled) return;
+
+            Vector2 delta = ctx.ReadValue<Vector2>();
+            Vector3 right = transform.right;
+            Vector3 up = transform.up;
+
+            // Invert Y to match typical camera panning behavior
+            Vector3 move = (-right * delta.x + -up * delta.y) * panSpeed;
+
+            
+            panOffset += move;
+
+            MovePosition(panOffset); // Apply panOffset to the camera
         };
     }
 
@@ -121,7 +153,7 @@ public class ThreeDViewerController : MonoBehaviour
     /// <summary>
     /// Updates the camera's position and rotation based on current yaw, pitch, and zoom distance.
     /// </summary>
-    private void UpdateCameraPosition()
+    private void OrbitPosition()
     {
         // Create a rotation from yaw and pitch
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
@@ -136,6 +168,12 @@ public class ThreeDViewerController : MonoBehaviour
         transform.rotation = rotation;
     }
 
+    private void MovePosition(Vector3 panOffset)
+    {
+        Vector3 direction = transform.forward;
+        transform.position = target.position - direction * distance + panOffset;
+    }
+
     /// <summary>
     /// Resets the orbit camera to its default view.
     /// </summary>
@@ -144,7 +182,20 @@ public class ThreeDViewerController : MonoBehaviour
         yaw = defaultYaw;
         pitch = defaultPitch;
         distance = defaultZoom;
-        UpdateCameraPosition();
+        OrbitPosition();
+    }
+
+    public void EnableOrbit(bool enable)
+    {
+        orbitInputEnabled = enable;
+        isOrbiting = false; // Ensure orbit immediately stops
+    }
+
+    public void EnablePan(bool enable)
+    {
+        panInputEnabled = enable;
+        isPanning = false;  // Ensure panning immediately stops
+        panOffset = Vector3.zero;
     }
 
     #endregion
